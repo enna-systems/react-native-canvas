@@ -1,6 +1,5 @@
 import React, {Component} from 'react';
-import PropTypes from 'prop-types';
-import {View, Platform, ViewStylePropTypes, StyleSheet} from 'react-native';
+import {View, Platform, StyleSheet} from 'react-native';
 import {WebView} from 'react-native-webview';
 import Bus from './Bus';
 import {webviewTarget, webviewProperties, webviewMethods, constructors, WEBVIEW_TARGET} from './webview-binders';
@@ -18,17 +17,22 @@ const stylesheet = StyleSheet.create({
     backgroundColor: 'transparent',
     flex: 0,
   },
+  webviewAndroid9: {
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+    flex: 0,
+    opacity: 0.99,
+  },
 });
 
 @webviewTarget('canvas')
 @webviewProperties({width: 300, height: 150})
-@webviewMethods(['toDataURL', 'initFonts', 'addFont'])
+@webviewMethods(['toDataURL'])
 export default class Canvas extends Component {
-  static propTypes = {
-    style: PropTypes.shape(ViewStylePropTypes),
-    baseUrl: PropTypes.string,
-    originWhitelist: PropTypes.arrayOf(PropTypes.string),
-  };
+
+  state = {
+    isLoaded: false,
+  }
 
   addMessageListener = listener => {
     this.listeners.push(listener);
@@ -39,7 +43,6 @@ export default class Canvas extends Component {
     this.listeners.splice(this.listeners.indexOf(listener), 1);
   };
 
-  loaded = false;
   /**
    * in the mounting process this.webview can be set to null
    */
@@ -63,11 +66,8 @@ export default class Canvas extends Component {
       case '2d': {
         return this.context2D;
       }
-
-      default: {
-        return null;
-      }
     }
+    return null;
   };
 
   postMessage = async message => {
@@ -125,19 +125,21 @@ export default class Canvas extends Component {
   };
 
   handleLoad = () => {
-    this.loaded = true;
+    this.setState({isLoaded: true});
     this.bus.resume();
   };
 
   render() {
     const {width, height} = this;
     const {style, baseUrl = '', originWhitelist = ['*']} = this.props;
+    const {isLoaded} = this.state;
     if (Platform.OS === 'android') {
+      const isAndroid9 = Platform.Version >= 28;
       return (
         <View style={[stylesheet.container, {width, height}, style]}>
           <WebView
             ref={this.handleRef}
-            style={[stylesheet.webview, {height, width}]}
+            style={[isAndroid9 ? stylesheet.webviewAndroid9 : stylesheet.webview, {height, width}]}
             source={{html, baseUrl}}
             originWhitelist={originWhitelist}
             onMessage={this.handleMessage}
@@ -153,7 +155,7 @@ export default class Canvas extends Component {
       );
     }
     return (
-      <View style={[stylesheet.container, {width, height}, style]}>
+      <View style={[stylesheet.container, {width, height, opacity: isLoaded ? 1 : 0}, style]}>
         <WebView
           ref={this.handleRef}
           style={[stylesheet.webview, {height, width}]}
